@@ -1,123 +1,118 @@
+# app.py
+
 import streamlit as st
 import pandas as pd
 import numpy as np
-from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
+import joblib
 
-# Menggunakan cache agar model hanya dilatih sekali saat aplikasi pertama kali dijalankan
+# --- KONFIGURASI TAMPILAN APLIKASI ---
+st.set_page_config(
+    page_title="Prediksi Penyakit Jantung",
+    page_icon="❤️",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# --- FUNGSI UNTUK MEMUAT DAN MELATIH MODEL ---
 @st.cache_resource
 def get_trained_model():
-    """
-    Fungsi ini akan memuat data, mendefinisikan preprocessor, 
-    dan melatih model Logistic Regression.
-    """
-    # 1. Muat dataset Anda
+    """Melatih model KNN dan menyimpannya di cache."""
     try:
         data = pd.read_csv('datasets-heartnew1.csv')
     except FileNotFoundError:
-        st.error("File dataset 'datasets-heartnew1.csv' tidak ditemukan.")
-        return None
+        return None # Akan ditangani di UI utama
 
-    # 2. Pisahkan fitur (X) dan target (y)
     X = data.drop('HeartDisease', axis=1)
     y = data['HeartDisease']
-
-    # 3. Definisikan preprocessor (ini adalah langkah yang hilang di skrip Anda)
-    # Model yang baik harus dilatih pada data yang di-scaling
-    numerical_features = X.columns.tolist() # Semua fitur di data Anda adalah numerik
-    preprocessor = ColumnTransformer(
-        transformers=[
-            ('num', StandardScaler(), numerical_features)
-        ]
-    )
-
-    # 4. Buat pipeline yang menggabungkan preprocessing dan model
+    numerical_features = X.columns.tolist()
+    preprocessor = ColumnTransformer(transformers=[('num', StandardScaler(), numerical_features)])
     model_pipeline = Pipeline(steps=[
         ('preprocessor', preprocessor),
-        ('classifier', LogisticRegression(random_state=42, max_iter=1000))
+        ('classifier', KNeighborsClassifier(n_neighbors=7))
     ])
-
-    # 5. Latih model dengan seluruh data yang ada
     model_pipeline.fit(X, y)
-    
     return model_pipeline
 
-# Panggil fungsi untuk mendapatkan model yang sudah siap pakai
+# Memuat model
 model = get_trained_model()
 
-# --- BAGIAN ANTARMUKA (UI) STREAMLIT ---
-# (Bagian ini diambil dari skrip Anda dan sedikit disempurnakan)
+# --- TAMPILAN UTAMA APLIKASI ---
+st.title("❤️ Prediksi Risiko Penyakit Jantung")
+st.markdown("---")
+st.markdown("""
+Penyakit jantung adalah salah satu penyebab utama kematian di seluruh dunia. Prediksi risiko penyakit jantung secara dini dapat membantu dalam pengambilan keputusan medis yang tepat waktu.
 
-st.title("Prediksi Penyakit Jantung")
-st.write("Aplikasi ini memprediksi risiko penyakit jantung menggunakan model Logistic Regression.")
+Aplikasi ini dirancang untuk membantu praktisi kesehatan dan pasien dalam memprediksi kemungkinan risiko penyakit jantung berdasarkan data medis. Model yang digunakan adalah **KNN (K-Nearest Neighbors)** dengan akurasi **~89%**.
+""")
 
-st.header("Input Data Pasien")
-
-# Input data dibuat dalam form agar lebih rapi
-with st.form("input_form"):
-    # Menggunakan kolom agar tata letak lebih baik
-    col1, col2 = st.columns(2)
-
-    with col1:
-        age = st.number_input("Umur", min_value=1, max_value=120, value=50)
-        sex = st.selectbox("Jenis Kelamin", ["Pria", "Wanita"])
-        # Mapping untuk Tipe Nyeri Dada (ChestPainType)
+# --- PANEL SAMPING (SIDEBAR) UNTUK INPUT DATA ---
+with st.sidebar:
+    st.header("Masukkan Data Pasien:")
+    
+    with st.form("prediction_form"):
+        # Input data pasien
+        Age = st.number_input("Umur", 20, 100, 50)
+        Sex = st.selectbox("Jenis Kelamin", ("Pria", "Wanita"))
+        
         cp_options = {"Typical Angina": 3, "Atypical Angina": 1, "Non-Anginal Pain": 2, "Asymptomatic": 0}
-        chest_pain_text = st.selectbox("Jenis Nyeri Dada", options=list(cp_options.keys()))
+        chest_pain_text = st.selectbox("Tipe Nyeri Dada", options=cp_options.keys())
         
-        resting_bp = st.number_input("Tekanan Darah Saat Istirahat (mmHg)", min_value=50, max_value=220, value=120)
-        cholesterol = st.number_input("Kolesterol (mg/dL)", min_value=0, max_value=600, value=200)
-        fasting_bs = st.selectbox("Gula Darah Puasa > 120 mg/dL", ["Ya", "Tidak"])
+        RestingBP = st.number_input("Tekanan Darah Istirahat (mmHg)", 80, 220, 120)
+        Cholesterol = st.number_input("Kolesterol (mg/dl)", 0, 600, 200)
+        FastingBS = st.selectbox("Gula Darah Puasa > 120 mg/dl?", ("Ya", "Tidak"))
 
-    with col2:
-        # Mapping untuk Hasil EKG Istirahat (RestingECG)
         ecg_options = {"Normal": 1, "ST-T Abnormality": 2, "LVH": 0}
-        resting_ecg_text = st.selectbox("Hasil EKG Saat Istirahat", options=list(ecg_options.keys()))
+        resting_ecg_text = st.selectbox("Hasil EKG Istirahat", options=ecg_options.keys())
         
-        max_hr = st.number_input("Detak Jantung Maksimum", min_value=60, max_value=220, value=150)
-        exercise_angina = st.selectbox("Angina Selama Latihan", ["Ya", "Tidak"])
-        oldpeak = st.number_input("Depresi ST (Oldpeak)", min_value=-3.0, max_value=10.0, value=1.0, step=0.1)
+        MaxHR = st.number_input("Detak Jantung Maksimum", 60, 220, 150)
+        ExerciseAngina = st.selectbox("Nyeri Dada saat Olahraga?", ("Ya", "Tidak"))
+        Oldpeak = st.number_input("Oldpeak (Depresi ST)", -3.0, 10.0, 1.0, step=0.1)
         
-        # Mapping untuk Kemiringan Segmen ST (ST_Slope)
         slope_options = {"Upsloping": 2, "Flat": 1, "Downsloping": 0}
-        st_slope_text = st.selectbox("Kemiringan Segmen ST", options=list(slope_options.keys()))
+        st_slope_text = st.selectbox("Kemiringan Segmen ST", options=slope_options.keys())
 
-    # Tombol submit
-    submitted = st.form_submit_button("Prediksi")
+        submit_button = st.form_submit_button(label="Lakukan Prediksi")
+
+# --- MENAMPILKAN HASIL DI HALAMAN UTAMA ---
+st.header("Hasil Prediksi")
+if not submitted:
+    st.info("Silakan isi data pasien di panel samping dan klik 'Lakukan Prediksi' untuk melihat hasilnya.")
 
 if submitted:
-    if model:
-        # Konversi input teks dari pengguna menjadi angka sesuai format dataset Anda
+    if model is None:
+        st.error("Model tidak berhasil dimuat karena file 'datasets-heartnew1.csv' tidak ditemukan. Pastikan file tersebut ada di repository GitHub Anda.")
+    else:
+        # Konversi input teks ke angka
         input_data = pd.DataFrame({
-            "Age": [age],
-            "Sex": [1 if sex == "Pria" else 0],
-            "ChestPainType": [cp_options[chest_pain_text]],
-            "RestingBP": [resting_bp],
-            "Cholesterol": [cholesterol],
-            "FastingBS": [1 if fasting_bs == "Ya" else 0],
-            "RestingECG": [ecg_options[resting_ecg_text]],
-            "MaxHR": [max_hr],
-            "ExerciseAngina": [1 if exercise_angina == "Ya" else 0],
-            "Oldpeak": [oldpeak],
+            "Age": [Age], "Sex": [1 if Sex == "Pria" else 0],
+            "ChestPainType": [cp_options[chest_pain_text]], "RestingBP": [RestingBP],
+            "Cholesterol": [Cholesterol], "FastingBS": [1 if FastingBS == "Ya" else 0],
+            "RestingECG": [ecg_options[resting_ecg_text]], "MaxHR": [MaxHR],
+            "ExerciseAngina": [1 if ExerciseAngina == "Ya" else 0], "Oldpeak": [Oldpeak],
             "ST_Slope": [slope_options[st_slope_text]]
         })
-
-        st.subheader("Data yang Anda Masukkan:")
-        st.write(input_data)
         
+        # Lakukan prediksi
         try:
-            # Lakukan prediksi
             prediction = model.predict(input_data)[0]
-            prediction_proba = model.predict_proba(input_data)[0][1] # Probabilitas kelas 1
+            prediction_proba = model.predict_proba(input_data)[0][1]
 
-            st.subheader("Hasil Prediksi")
             if prediction == 1:
-                st.error(f"Pasien Berisiko Terkena Penyakit Jantung (Probabilitas: {prediction_proba:.2%})")
+                st.warning(f"**Pasien Berisiko Terkena Penyakit Jantung**", icon="⚠️")
             else:
-                st.success(f"Pasien Tidak Berisiko Terkena Penyakit Jantung (Probabilitas Risiko: {prediction_proba:.2%})")
+                st.success(f"**Pasien Tidak Berisiko Terkena Penyakit Jantung**", icon="✅")
+            
+            st.metric(label="Tingkat Probabilitas Risiko", value=f"{prediction_proba:.2%}")
+            
+            with st.expander("Lihat Detail Data yang Dimasukkan"):
+                st.dataframe(input_data)
         except Exception as e:
             st.error(f"Terjadi kesalahan saat melakukan prediksi: {e}")
-    else:
-        st.error("Model belum siap digunakan.")
+
+# Disclaimer
+st.markdown("---")
+st.caption("Disclaimer: Aplikasi ini adalah alat bantu prediksi dan tidak menggantikan diagnosis medis profesional. Selalu konsultasikan dengan dokter untuk evaluasi kesehatan yang akurat.")
