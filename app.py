@@ -28,7 +28,7 @@ def load_model(model_path):
 # --- FUNGSI UTAMA APLIKASI ---
 def main():
     # Memuat model KNN yang sudah dilatih
-    model = load_model('model_knn_definitif.pkl')
+    model = load_model('model_knn_terbaik.pkl')
     
     # Jangan lanjutkan jika model gagal di-load
     if model is None:
