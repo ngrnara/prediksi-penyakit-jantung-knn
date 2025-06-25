@@ -1,4 +1,4 @@
-# app.py
+# app.py (Versi Final yang Sudah Diperbaiki)
 
 import streamlit as st
 import pandas as pd
@@ -24,7 +24,7 @@ def get_trained_model():
     try:
         data = pd.read_csv('datasets-heartnew1.csv')
     except FileNotFoundError:
-        return None # Akan ditangani di UI utama
+        return None
 
     X = data.drop('HeartDisease', axis=1)
     y = data['HeartDisease']
@@ -41,7 +41,7 @@ def get_trained_model():
 model = get_trained_model()
 
 # --- TAMPILAN UTAMA APLIKASI ---
-st.title("❤️ Prediksi Risiko Penyakit Jantung")
+st.title("❤️ Aplikasi Prediksi Penyakit Jantung")
 st.markdown("---")
 st.markdown("""
 Penyakit jantung adalah salah satu penyebab utama kematian di seluruh dunia. Prediksi risiko penyakit jantung secara dini dapat membantu dalam pengambilan keputusan medis yang tepat waktu.
@@ -52,39 +52,33 @@ Aplikasi ini dirancang untuk membantu praktisi kesehatan dan pasien dalam mempre
 # --- PANEL SAMPING (SIDEBAR) UNTUK INPUT DATA ---
 with st.sidebar:
     st.header("Masukkan Data Pasien:")
-    
     with st.form("prediction_form"):
-        # Input data pasien
         Age = st.number_input("Umur", 20, 100, 50)
         Sex = st.selectbox("Jenis Kelamin", ("Pria", "Wanita"))
-        
         cp_options = {"Typical Angina": 3, "Atypical Angina": 1, "Non-Anginal Pain": 2, "Asymptomatic": 0}
         chest_pain_text = st.selectbox("Tipe Nyeri Dada", options=cp_options.keys())
-        
         RestingBP = st.number_input("Tekanan Darah Istirahat (mmHg)", 80, 220, 120)
         Cholesterol = st.number_input("Kolesterol (mg/dl)", 0, 600, 200)
         FastingBS = st.selectbox("Gula Darah Puasa > 120 mg/dl?", ("Ya", "Tidak"))
-
         ecg_options = {"Normal": 1, "ST-T Abnormality": 2, "LVH": 0}
         resting_ecg_text = st.selectbox("Hasil EKG Istirahat", options=ecg_options.keys())
-        
         MaxHR = st.number_input("Detak Jantung Maksimum", 60, 220, 150)
         ExerciseAngina = st.selectbox("Nyeri Dada saat Olahraga?", ("Ya", "Tidak"))
         Oldpeak = st.number_input("Oldpeak (Depresi ST)", -3.0, 10.0, 1.0, step=0.1)
-        
         slope_options = {"Upsloping": 2, "Flat": 1, "Downsloping": 0}
         st_slope_text = st.selectbox("Kemiringan Segmen ST", options=slope_options.keys())
-
+        
+        # Variabel tombol yang benar adalah 'submit_button'
         submit_button = st.form_submit_button(label="Lakukan Prediksi")
 
 # --- MENAMPILKAN HASIL DI HALAMAN UTAMA ---
 st.header("Hasil Prediksi")
-if not submitted:
-    st.info("Silakan isi data pasien di panel samping dan klik 'Lakukan Prediksi' untuk melihat hasilnya.")
 
-if submitted:
+# --- PERBAIKAN ADA DI SINI ---
+# Kita cek kondisi menggunakan variabel 'submit_button' yang benar
+if submit_button:
     if model is None:
-        st.error("Model tidak berhasil dimuat karena file 'datasets-heartnew1.csv' tidak ditemukan. Pastikan file tersebut ada di repository GitHub Anda.")
+        st.error("Model tidak berhasil dimuat karena file 'datasets-heartnew1.csv' tidak ditemukan.")
     else:
         # Konversi input teks ke angka
         input_data = pd.DataFrame({
@@ -96,7 +90,6 @@ if submitted:
             "ST_Slope": [slope_options[st_slope_text]]
         })
         
-        # Lakukan prediksi
         try:
             prediction = model.predict(input_data)[0]
             prediction_proba = model.predict_proba(input_data)[0][1]
@@ -112,7 +105,10 @@ if submitted:
                 st.dataframe(input_data)
         except Exception as e:
             st.error(f"Terjadi kesalahan saat melakukan prediksi: {e}")
+else:
+    # Ini pesan yang akan muncul sebelum tombol ditekan
+    st.info("Silakan isi data pasien di panel samping dan klik 'Lakukan Prediksi' untuk melihat hasilnya.")
 
 # Disclaimer
 st.markdown("---")
-st.caption("Disclaimer: Aplikasi ini adalah alat bantu prediksi dan tidak menggantikan diagnosis medis profesional. Selalu konsultasikan dengan dokter untuk evaluasi kesehatan yang akurat.")
+st.caption("Disclaimer: Aplikasi ini adalah alat bantu prediksi dan tidak menggantikan diagnosis medis profesional.")
